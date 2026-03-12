@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>統合実習 配置最適化アプリ</title>
+  <meta name="description" content="看護大学の統合実習における学生配置を最適化するローカル処理型アプリケーション" />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="./style.css" />
+</head>
+<body>
+  <!-- ヘッダー -->
+  <header class="app-header">
+    <div class="header-content">
+      <div class="logo">
+        <svg class="logo-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M12 2L2 7l10 5 10-5-10-5z"/>
+          <path d="M2 17l10 5 10-5"/>
+          <path d="M2 12l10 5 10-5"/>
+        </svg>
+        <h1>統合実習 配置最適化</h1>
+      </div>
+      <div class="header-badge">
+        <span class="badge-secure">🔒 ローカル処理のみ</span>
+      </div>
+    </div>
+  </header>
+
+  <!-- ステッパー -->
+  <nav class="stepper" id="stepper">
+    <div class="stepper-track">
+      <div class="step active" data-step="1">
+        <div class="step-circle">1</div>
+        <div class="step-label">CSV読込</div>
+      </div>
+      <div class="step-line"></div>
+      <div class="step" data-step="2">
+        <div class="step-circle">2</div>
+        <div class="step-label">条件設定</div>
+      </div>
+      <div class="step-line"></div>
+      <div class="step" data-step="3">
+        <div class="step-circle">3</div>
+        <div class="step-label">最適化実行</div>
+      </div>
+      <div class="step-line"></div>
+      <div class="step" data-step="4">
+        <div class="step-circle">4</div>
+        <div class="step-label">結果確認</div>
+      </div>
+      <div class="step-line"></div>
+      <div class="step" data-step="5">
+        <div class="step-circle">5</div>
+        <div class="step-label">エクスポート</div>
+      </div>
+    </div>
+  </nav>
+
+  <main class="main-content">
+    <!-- ====== STEP 1: CSV読込 ====== -->
+    <section class="step-panel active" id="panel-1">
+      <div class="panel-header">
+        <h2>📂 CSVデータ読込</h2>
+        <p class="panel-desc">学生の希望順位アンケート結果CSVをアップロードしてください。</p>
+      </div>
+
+      <div class="card upload-area" id="upload-area">
+        <div class="upload-icon">
+          <svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M24 32V8M16 16l8-8 8 8"/>
+            <path d="M40 28v10a4 4 0 01-4 4H12a4 4 0 01-4-4V28"/>
+          </svg>
+        </div>
+        <p class="upload-text">ここにCSVファイルをドロップ</p>
+        <p class="upload-sub">またはクリックしてファイルを選択</p>
+        <input type="file" id="csv-input" accept=".csv,.txt" hidden />
+      </div>
+
+      <div class="card" id="csv-preview-section" style="display:none;">
+        <h3>📋 データプレビュー</h3>
+        <div class="preview-info" id="preview-info"></div>
+        <div class="table-wrapper">
+          <table class="data-table" id="preview-table"></table>
+        </div>
+      </div>
+
+      <div class="card" id="column-mapping-section" style="display:none;">
+        <h3>🔗 列マッピング確認</h3>
+        <p class="mapping-desc">CSVの列名と必要なデータ項目を対応付けてください。</p>
+        <div class="mapping-grid" id="mapping-grid"></div>
+        <div class="mapping-actions">
+          <button class="btn btn-secondary" id="auto-detect-btn">自動検出</button>
+          <button class="btn btn-primary" id="apply-mapping-btn">マッピングを適用</button>
+        </div>
+      </div>
+
+      <div class="card" id="validation-section" style="display:none;">
+        <h3>✅ バリデーション結果</h3>
+        <div id="validation-results"></div>
+      </div>
+
+      <div class="step-actions">
+        <div></div>
+        <button class="btn btn-primary btn-next" id="to-step2" disabled>
+          条件設定へ →
+        </button>
+      </div>
+    </section>
+
+    <!-- ====== STEP 2: 条件設定 ====== -->
+    <section class="step-panel" id="panel-2">
+      <div class="panel-header">
+        <h2>⚙️ 条件設定</h2>
+        <p class="panel-desc">配置先の定員、キーワードルール、偏り抑制などを設定してください。</p>
+      </div>
+
+      <div class="settings-grid">
+        <!-- 定員設定 -->
+        <div class="card settings-card">
+          <h3>🏥 配置先定員設定</h3>
+          <p class="card-desc">各配置先の受け入れ人数を入力してください。</p>
+          <div class="capacity-section">
+            <h4>一般領域</h4>
+            <div class="capacity-grid" id="capacity-general"></div>
+            <h4>急性 内訳</h4>
+            <div class="capacity-grid" id="capacity-acute"></div>
+          </div>
+          <div class="capacity-summary" id="capacity-summary"></div>
+          <div class="student-count-section" id="student-count-setting" style="margin-top:16px;"></div>
+        </div>
+
+        <!-- 偏り抑制設定 -->
+        <div class="card settings-card">
+          <h3>⚖️ 課程偏り抑制</h3>
+          <p class="card-desc">保健師課程・養護教諭課程の特定領域への偏りを抑制します。</p>
+          <div class="dispersion-settings" id="dispersion-settings">
+            <div class="setting-row">
+              <label>保健師課程の偏り抑制</label>
+              <select id="dispersion-hokenshi" class="select-input">
+                <option value="0">無効</option>
+                <option value="1">弱</option>
+                <option value="3" selected>中</option>
+                <option value="5">強</option>
+              </select>
+            </div>
+            <div class="setting-row">
+              <label>養護教諭課程の偏り抑制</label>
+              <select id="dispersion-yogo" class="select-input">
+                <option value="0">無効</option>
+                <option value="1">弱</option>
+                <option value="3" selected>中</option>
+                <option value="5">強</option>
+              </select>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- キーワード設定 -->
+      <div class="card">
+        <h3>🔑 キーワード加点ルール</h3>
+        <p class="card-desc">希望理由に特定のキーワードが含まれる場合、対応する配置先に加点します。</p>
+        <div class="keyword-rules" id="keyword-rules"></div>
+        <button class="btn btn-secondary" id="add-keyword-btn">＋ ルールを追加</button>
+      </div>
+
+      <div class="step-actions">
+        <button class="btn btn-secondary btn-prev" id="to-step1">← CSV読込</button>
+        <button class="btn btn-primary btn-next" id="to-step3">最適化実行へ →</button>
+      </div>
+    </section>
+
+    <!-- ====== STEP 3: 最適化実行 ====== -->
+    <section class="step-panel" id="panel-3">
+      <div class="panel-header">
+        <h2>🚀 最適化実行</h2>
+        <p class="panel-desc">設定した条件に基づいて最適な配置案を算出します。</p>
+      </div>
+
+      <div class="card optimize-card">
+        <div class="optimize-summary" id="optimize-summary"></div>
+        <div class="optimize-actions">
+          <button class="btn btn-large btn-primary" id="run-optimize-btn">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20">
+              <polygon points="5 3 19 12 5 21 5 3"/>
+            </svg>
+            配置を最適化
+          </button>
+        </div>
+        <div class="optimize-progress" id="optimize-progress" style="display:none;">
+          <div class="progress-bar">
+            <div class="progress-fill" id="progress-fill"></div>
+          </div>
+          <p class="progress-text" id="progress-text">計算中...</p>
+        </div>
+        <div class="optimize-error" id="optimize-error" style="display:none;"></div>
+      </div>
+
+      <div class="step-actions">
+        <button class="btn btn-secondary btn-prev" id="to-step2b">← 条件設定</button>
+        <button class="btn btn-primary btn-next" id="to-step4" disabled>結果確認へ →</button>
+      </div>
+    </section>
+
+    <!-- ====== STEP 4: 結果確認 ====== -->
+    <section class="step-panel" id="panel-4">
+      <div class="panel-header">
+        <h2>📊 結果確認</h2>
+        <p class="panel-desc">最適化された配置結果を確認してください。</p>
+      </div>
+
+      <!-- サマリー -->
+      <div class="summary-grid" id="summary-grid"></div>
+
+      <!-- グラフ -->
+      <div class="charts-row">
+        <div class="card chart-card">
+          <h3>配置先別人数</h3>
+          <canvas id="chart-placement" width="500" height="300"></canvas>
+        </div>
+        <div class="card chart-card">
+          <h3>希望順位達成状況</h3>
+          <canvas id="chart-preference" width="500" height="300"></canvas>
+        </div>
+      </div>
+      <div class="charts-row">
+        <div class="card chart-card">
+          <h3>課程別分布</h3>
+          <canvas id="chart-course" width="500" height="300"></canvas>
+        </div>
+      </div>
+
+      <!-- 結果テーブル -->
+      <div class="card">
+        <div class="result-table-header">
+          <h3>📋 学生別配置結果</h3>
+          <div class="result-filters">
+            <input type="text" placeholder="氏名・IDで検索..." class="search-input" id="result-search" />
+            <select class="select-input" id="result-filter-placement">
+              <option value="">すべての配置先</option>
+            </select>
+          </div>
+        </div>
+        <div class="table-wrapper">
+          <table class="data-table result-table" id="result-table"></table>
+        </div>
+      </div>
+
+      <div class="step-actions">
+        <button class="btn btn-secondary btn-prev" id="to-step3b">← 最適化実行</button>
+        <button class="btn btn-primary btn-next" id="to-step5">エクスポートへ →</button>
+      </div>
+    </section>
+
+    <!-- ====== STEP 5: エクスポート ====== -->
+    <section class="step-panel" id="panel-5">
+      <div class="panel-header">
+        <h2>💾 エクスポート</h2>
+        <p class="panel-desc">配置結果をCSVファイルとしてダウンロードできます。</p>
+      </div>
+
+      <div class="export-grid">
+        <div class="card export-card">
+          <div class="export-icon">📄</div>
+          <h3>配置結果CSV</h3>
+          <p>学生ごとの配置先、希望順位、得点などを含む詳細データ。</p>
+          <button class="btn btn-primary" id="export-results-btn">ダウンロード</button>
+        </div>
+        <div class="card export-card">
+          <div class="export-icon">📊</div>
+          <h3>集計結果CSV</h3>
+          <p>配置先別の人数、課程別集計、得点サマリーなど。</p>
+          <button class="btn btn-primary" id="export-summary-btn">ダウンロード</button>
+        </div>
+      </div>
+
+      <div class="step-actions">
+        <button class="btn btn-secondary btn-prev" id="to-step4b">← 結果確認</button>
+        <div></div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="app-footer">
+    <p>統合実習 配置最適化アプリ v1.0 — すべての処理はブラウザ内で完結しています。外部送信は一切行われません。</p>
+  </footer>
+
+  <script type="module" src="/src/main.js"></script>
+</body>
+</html>
